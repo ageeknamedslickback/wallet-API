@@ -1,11 +1,13 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
+	"github.com/shopspring/decimal"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -18,13 +20,9 @@ type WalletDb struct {
 
 // NewWalletDb initializes a new wallet server database instance
 // that meets all the preconsitions checks
-func NewWalletDb() *WalletDb {
-	gormDb, err := ConnectToDatabase()
-	if err != nil {
-		log.Panicf("error connecting to the database: %v", err)
-	}
+func NewWalletDb(gorm *gorm.DB) *WalletDb {
 	db := WalletDb{
-		Db: gormDb,
+		Db: gorm,
 	}
 	db.checkPreconditions()
 
@@ -39,7 +37,8 @@ func (db *WalletDb) checkPreconditions() {
 
 // ConnectToDatabase opens a connection to the database
 func ConnectToDatabase() (*gorm.DB, error) {
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
+	dsn := fmt.Sprintf(
+		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASS"),
 		os.Getenv("DB_HOST"),
@@ -69,4 +68,38 @@ func autoMigrate(db *gorm.DB) error {
 	}
 
 	return nil
+}
+
+// GetWallet retrieves a wallet balance for the supplied wallet ID
+func (db *WalletDb) GetWallet(
+	ctx context.Context,
+	walletID int,
+) (*domain.Wallet, error) {
+	var wallet domain.Wallet
+
+	if err := db.Db.First(&wallet, walletID).Error; err != nil {
+		return nil, err
+	}
+
+	return &wallet, nil
+}
+
+// UpdateBalance updates (credits/debits) a wallet's balance
+func (db *WalletDb) UpdateBalance(
+	ctx context.Context,
+	wallet *domain.Wallet,
+	balance decimal.Decimal,
+) (*domain.Wallet, error) {
+	if wallet == nil {
+		return nil, fmt.Errorf("no wallet has been passed")
+	}
+
+	if err := db.Db.Model(&wallet).
+		Where("id = ?", wallet.ID).
+		Updates(domain.Wallet{Balance: balance}).
+		Error; err != nil {
+		return nil, err
+	}
+
+	return wallet, nil
 }
