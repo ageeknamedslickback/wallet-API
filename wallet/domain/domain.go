@@ -1,11 +1,12 @@
 package domain
 
 import (
-	"gorm.io/gorm"
+	"github.com/shopspring/decimal"
 )
 
 // Wallet represents a digital wallet that manages
 // debit and credit transaction for online casino game players
 type Wallet struct {
-	gorm.Model
+	ID      uint            `json:"id" gorm:"primarykey"`
+	Balance decimal.Decimal `json:"balance"`
 }
