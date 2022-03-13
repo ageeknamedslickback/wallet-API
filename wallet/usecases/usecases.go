@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
@@ -80,6 +81,10 @@ func (w *WalletUsecases) CreditWallet(
 		return nil, err
 	}
 	balance := wallet.Balance.Sub(creditAmount)
+
+	if balance.IsNegative() {
+		return nil, fmt.Errorf("a wallet balance cannot go below 0")
+	}
 
 	return w.Update.UpdateBalance(ctx, wallet, balance)
 }
