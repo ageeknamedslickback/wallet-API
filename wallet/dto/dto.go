@@ -25,3 +25,22 @@ type AccessToken struct {
 	TokenType   string `json:"token_type"`
 	ExpiresIn   int    `json:"expires_in"`
 }
+
+// WrappedError is a custom context wrapped error
+type WrappedError struct {
+	Context string `json:"context"`
+	Err     error  `json:"error"`
+}
+
+// Error is a string representation of an error interface
+func (w *WrappedError) Error() string {
+	return fmt.Sprintf("%s: %v", w.Context, w.Err)
+}
+
+// Wrap wraps an error with it's context
+func Wrap(err error, info string) *WrappedError {
+	return &WrappedError{
+		Context: info,
+		Err:     err,
+	}
+}

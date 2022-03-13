@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
+	"github.com/ageeknamedslickback/wallet-API/wallet/dto"
 	"github.com/ageeknamedslickback/wallet-API/wallet/repository"
 	"github.com/shopspring/decimal"
 )
@@ -62,7 +63,12 @@ func (w *WalletUsecases) WalletBalance(
 	ctx context.Context,
 	walletID int,
 ) (*domain.Wallet, error) {
-	return w.Get.GetBalance(ctx, walletID)
+	wallet, err := w.Get.GetBalance(ctx, walletID)
+	if err != nil {
+		return nil, dto.Wrap(err, "WalletBalance")
+	}
+
+	return wallet, nil
 }
 
 // CreditWallet credits money on a given wallet
@@ -73,15 +79,20 @@ func (w *WalletUsecases) CreditWallet(
 ) (*domain.Wallet, error) {
 	wallet, err := w.Get.GetBalance(ctx, walletID)
 	if err != nil {
-		return nil, err
+		return nil, dto.Wrap(err, "CreditWallet")
 	}
 	balance := wallet.Balance.Sub(creditAmount)
 
 	if balance.IsNegative() {
-		return nil, fmt.Errorf("a wallet balance cannot go below 0")
+		return nil, dto.Wrap(fmt.Errorf("a wallet balance cannot go below 0"), "CreditWallet")
 	}
 
-	return w.Update.UpdateBalance(ctx, wallet, balance)
+	updatedWallet, err := w.Update.UpdateBalance(ctx, wallet, balance)
+	if err != nil {
+		return nil, dto.Wrap(err, "CreditWallet")
+	}
+
+	return updatedWallet, nil
 }
 
 // DebitWallet debits money on a given wallet
@@ -92,9 +103,14 @@ func (w *WalletUsecases) DebitWallet(
 ) (*domain.Wallet, error) {
 	wallet, err := w.Get.GetBalance(ctx, walletID)
 	if err != nil {
-		return nil, err
+		return nil, dto.Wrap(err, "DebitWallet")
 	}
 	balance := wallet.Balance.Add(debitAmount)
 
-	return w.Update.UpdateBalance(ctx, wallet, balance)
+	updatedWallet, err := w.Update.UpdateBalance(ctx, wallet, balance)
+	if err != nil {
+		dto.Wrap(err, "DebitWallet")
+	}
+
+	return updatedWallet, nil
 }

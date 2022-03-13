@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
+	"github.com/ageeknamedslickback/wallet-API/wallet/dto"
 	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
 	"gorm.io/driver/mysql"
@@ -51,11 +52,11 @@ func ConnectToDatabase() (*gorm.DB, error) {
 	)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %v", err)
+		return nil, dto.Wrap(fmt.Errorf("failed to connect to database with err %v", err), "ConnectToDatabase")
 	}
 
 	if err := autoMigrate(db); err != nil {
-		return nil, err
+		return nil, dto.Wrap(err, "ConnectToDatabase")
 	}
 
 	return db, nil
@@ -67,7 +68,7 @@ func autoMigrate(db *gorm.DB) error {
 	}
 	for _, table := range tables {
 		if err := db.AutoMigrate(table); err != nil {
-			return fmt.Errorf("failed to automigrate: %v", err)
+			return dto.Wrap(fmt.Errorf("failed to automigrate with err %v", err), "autoMigrate")
 		}
 	}
 
@@ -89,16 +90,16 @@ func (db *WalletDb) GetBalance(
 
 	case nil:
 		if err := json.Unmarshal([]byte(result), &wallet); err != nil {
-			return nil, err
+			return nil, dto.Wrap(fmt.Errorf("failed to unmarshal cached balance with err %v", err), "GetBalance")
 		}
 		return &wallet, nil
 
 	default:
-		return nil, err
+		return nil, dto.Wrap(fmt.Errorf("failed to get cached balance with err %v", err), "GetBalance")
 	}
 
 	if err := db.Db.First(&wallet, walletID).Error; err != nil {
-		return nil, err
+		return nil, dto.Wrap(fmt.Errorf("failed to get wallet record with err %v", err), "GetBalance")
 	}
 
 	return &wallet, nil
@@ -118,15 +119,15 @@ func (db *WalletDb) UpdateBalance(
 		Where("id = ?", wallet.ID).
 		Updates(domain.Wallet{Balance: balance}).
 		Error; err != nil {
-		return nil, err
+		return nil, dto.Wrap(fmt.Errorf("failed to update wallet balance with err %v", err), "UpdateBalance")
 	}
 
 	walletJson, err := json.Marshal(wallet)
 	if err != nil {
-		return nil, err
+		return nil, dto.Wrap(fmt.Errorf("failed to marshal wallet balance with err %v", err), "UpdateBalance")
 	}
 	if err := db.Rdb.Set(fmt.Sprint(wallet.ID), walletJson, 0).Err(); err != nil {
-		return nil, fmt.Errorf("error setting balance to redis: %v", err)
+		return nil, dto.Wrap(fmt.Errorf("failed to cache wallet balance with err %v", err), "UpdateBalance")
 	}
 
 	return wallet, nil
