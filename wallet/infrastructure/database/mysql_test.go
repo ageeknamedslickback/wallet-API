@@ -4,13 +4,17 @@ import (
 	"context"
 	"log"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
 	"github.com/brianvoe/gofakeit/v6"
+	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
 )
+
+var ctx = context.Background()
 
 func initTestDatabase() *database.WalletDb {
 	gormDb, err := database.ConnectToDatabase()
@@ -18,11 +22,20 @@ func initTestDatabase() *database.WalletDb {
 		log.Panicf("error connecting to the database: %v", err)
 	}
 
-	return database.NewWalletDb(gormDb)
+	db, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		log.Panic(err)
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       db,
+	})
+
+	return database.NewWalletDb(gormDb, rdb)
 }
 
-func TestWalletDb_GetWallet(t *testing.T) {
-	ctx := context.Background()
+func TestWalletDb_GetBalance(t *testing.T) {
 	type args struct {
 		ctx      context.Context
 		walletID int
@@ -52,10 +65,10 @@ func TestWalletDb_GetWallet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := initTestDatabase()
-			wallet, err := db.GetWallet(tt.args.ctx, tt.args.walletID)
+			wallet, err := db.GetBalance(tt.args.ctx, tt.args.walletID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf(
-					"WalletDb.GetWallet() error = %v, wantErr %v",
+					"WalletDb.GetBalance() error = %v, wantErr %v",
 					err,
 					tt.wantErr,
 				)
@@ -85,11 +98,10 @@ func TestWalletDb_GetWallet(t *testing.T) {
 }
 
 func TestWalletDb_UpdateBalance(t *testing.T) {
-	ctx := context.Background()
 	db := initTestDatabase()
 
 	walletID := 2 // existing wallet
-	wallet, err := db.GetWallet(ctx, walletID)
+	wallet, err := db.GetBalance(ctx, walletID)
 	if err != nil {
 		t.Fatalf("expected to get wallet with id 2: %v", err)
 	}

@@ -15,7 +15,7 @@ type WalletBusinessLogic interface {
 	WalletBalance(
 		ctx context.Context,
 		walletID int,
-	) (*decimal.Decimal, error)
+	) (*domain.Wallet, error)
 	CreditWallet(
 		ctx context.Context,
 		walletID int,
@@ -61,13 +61,8 @@ func (w *WalletUsecases) checkPreconditions() {
 func (w *WalletUsecases) WalletBalance(
 	ctx context.Context,
 	walletID int,
-) (*decimal.Decimal, error) {
-	wallet, err := w.Get.GetWallet(ctx, walletID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &wallet.Balance, nil
+) (*domain.Wallet, error) {
+	return w.Get.GetBalance(ctx, walletID)
 }
 
 // CreditWallet credits money on a given wallet
@@ -76,7 +71,7 @@ func (w *WalletUsecases) CreditWallet(
 	walletID int,
 	creditAmount decimal.Decimal,
 ) (*domain.Wallet, error) {
-	wallet, err := w.Get.GetWallet(ctx, walletID)
+	wallet, err := w.Get.GetBalance(ctx, walletID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +90,7 @@ func (w *WalletUsecases) DebitWallet(
 	walletID int,
 	debitAmount decimal.Decimal,
 ) (*domain.Wallet, error) {
-	wallet, err := w.Get.GetWallet(ctx, walletID)
+	wallet, err := w.Get.GetBalance(ctx, walletID)
 	if err != nil {
 		return nil, err
 	}

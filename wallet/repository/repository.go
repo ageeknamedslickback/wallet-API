@@ -9,7 +9,7 @@ import (
 
 // Get represents a contract for all GET operations in the infra database layer
 type Get interface {
-	GetWallet(
+	GetBalance(
 		ctx context.Context,
 		walletID int,
 	) (*domain.Wallet, error)

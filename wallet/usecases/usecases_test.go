@@ -3,26 +3,40 @@ package usecases_test
 import (
 	"context"
 	"log"
+	"os"
+	"strconv"
 	"testing"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
 	"github.com/ageeknamedslickback/wallet-API/wallet/usecases"
+	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
 )
+
+var ctx = context.Background()
 
 func initTestUsecases() *usecases.WalletUsecases {
 	gormDb, err := database.ConnectToDatabase()
 	if err != nil {
 		log.Panicf("error connecting to the database: %v", err)
 	}
-	getRepo := database.NewWalletDb(gormDb)
-	updateRepo := database.NewWalletDb(gormDb)
+
+	db, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		log.Panic(err)
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       db,
+	})
+	getRepo := database.NewWalletDb(gormDb, rdb)
+	updateRepo := database.NewWalletDb(gormDb, rdb)
 	w := usecases.NewWalletUsecases(getRepo, updateRepo)
 	return w
 }
 
 func TestWalletUsecases_WalletBalance(t *testing.T) {
-	ctx := context.Background()
 	type args struct {
 		ctx      context.Context
 		walletID int
@@ -52,28 +66,28 @@ func TestWalletUsecases_WalletBalance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := initTestUsecases()
-			balance, err := w.WalletBalance(tt.args.ctx, tt.args.walletID)
+			wallet, err := w.WalletBalance(tt.args.ctx, tt.args.walletID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("WalletUsecases.WalletBalance() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
 			if !tt.wantErr {
-				if balance == nil {
+				if wallet == nil {
 					t.Fatalf("expected a wallet")
 				}
 
 				exectedBal := decimal.NewFromInt(100).String()
-				if balance.String() != exectedBal {
+				if wallet.Balance.String() != exectedBal {
 					t.Fatalf(
 						"expected wallet balance to be 100 but got %s",
-						balance,
+						wallet.Balance,
 					)
 				}
 			}
 
 			if tt.wantErr {
-				if balance != nil {
+				if wallet != nil {
 					t.Fatalf("expected no wallet balance to be returned")
 				}
 			}
@@ -83,11 +97,10 @@ func TestWalletUsecases_WalletBalance(t *testing.T) {
 
 func TestWalletUsecases_CreditWallet(t *testing.T) {
 	w := initTestUsecases()
-	ctx := context.Background()
 	amount := decimal.NewFromFloat(10.34)
 	walletID := 2
 
-	balance, err := w.WalletBalance(ctx, walletID)
+	wal, err := w.WalletBalance(ctx, walletID)
 	if err != nil {
 		t.Fatalf("failed to get wallet balance with id 2: %v", err)
 	}
@@ -147,7 +160,7 @@ func TestWalletUsecases_CreditWallet(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				expectedBalance := balance.Sub(amount)
+				expectedBalance := wal.Balance.Sub(amount)
 				if wallet.Balance.String() != expectedBalance.String() {
 					t.Fatalf("expected amount to be credited to the wallet balance")
 				}
@@ -167,11 +180,10 @@ func TestWalletUsecases_CreditWallet(t *testing.T) {
 
 func TestWalletUsecases_DebitWallet(t *testing.T) {
 	w := initTestUsecases()
-	ctx := context.Background()
 	amount := decimal.NewFromFloat(50)
 	walletID := 2
 
-	balance, err := w.WalletBalance(ctx, walletID)
+	wal, err := w.WalletBalance(ctx, walletID)
 	if err != nil {
 		t.Fatalf("failed to get wallet balance with id 2: %v", err)
 	}
@@ -222,7 +234,7 @@ func TestWalletUsecases_DebitWallet(t *testing.T) {
 				return
 			}
 			if !tt.wantErr {
-				expectedBalance := balance.Add(amount)
+				expectedBalance := wal.Balance.Add(amount)
 				if wallet.Balance.String() != expectedBalance.String() {
 					t.Fatalf("expected amount to be debited to the wallet balance")
 				}

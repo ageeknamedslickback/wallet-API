@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
@@ -12,19 +13,30 @@ import (
 	"github.com/ageeknamedslickback/wallet-API/wallet/presentation/middleware"
 	"github.com/ageeknamedslickback/wallet-API/wallet/usecases"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
 	adapter "github.com/gwatts/gin-adapter"
 )
 
 // Router sets up the presentation layer config router
 func Router() *gin.Engine {
+	db, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		log.Panic(err)
+	}
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       db,
+	})
+
 	router := gin.Default()
 
 	gormDb, err := database.ConnectToDatabase()
 	if err != nil {
 		log.Panicf("error connecting to the database: %v", err)
 	}
-	getRepo := database.NewWalletDb(gormDb)
-	updateRepo := database.NewWalletDb(gormDb)
+	getRepo := database.NewWalletDb(gormDb, rdb)
+	updateRepo := database.NewWalletDb(gormDb, rdb)
 	uc := usecases.NewWalletUsecases(getRepo, updateRepo)
 	h := jsonapi.NewWalletJsonAPIs(uc)
 
