@@ -2,11 +2,13 @@ package database
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
+	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -15,14 +17,16 @@ import (
 // WalletDb sets up wallet's API server database layer
 // with all the necessary dependencies
 type WalletDb struct {
-	Db *gorm.DB
+	Db  *gorm.DB
+	Rdb *redis.Client
 }
 
 // NewWalletDb initializes a new wallet server database instance
 // that meets all the preconsitions checks
-func NewWalletDb(gorm *gorm.DB) *WalletDb {
+func NewWalletDb(gorm *gorm.DB, rdb *redis.Client) *WalletDb {
 	db := WalletDb{
-		Db: gorm,
+		Db:  gorm,
+		Rdb: rdb,
 	}
 	db.checkPreconditions()
 
@@ -70,12 +74,28 @@ func autoMigrate(db *gorm.DB) error {
 	return nil
 }
 
-// GetWallet retrieves a wallet balance for the supplied wallet ID
-func (db *WalletDb) GetWallet(
+// GetBalance retrieves a wallet balance for the supplied wallet ID
+func (db *WalletDb) GetBalance(
 	ctx context.Context,
 	walletID int,
 ) (*domain.Wallet, error) {
 	var wallet domain.Wallet
+
+	id := fmt.Sprint(wallet.ID)
+	result, err := db.Rdb.Get(id).Result()
+	switch err {
+	case redis.Nil:
+		log.Printf("%s does not exist", id)
+
+	case nil:
+		if err := json.Unmarshal([]byte(result), &wallet); err != nil {
+			return nil, err
+		}
+		return &wallet, nil
+
+	default:
+		return nil, err
+	}
 
 	if err := db.Db.First(&wallet, walletID).Error; err != nil {
 		return nil, err
@@ -99,6 +119,14 @@ func (db *WalletDb) UpdateBalance(
 		Updates(domain.Wallet{Balance: balance}).
 		Error; err != nil {
 		return nil, err
+	}
+
+	walletJson, err := json.Marshal(wallet)
+	if err != nil {
+		return nil, err
+	}
+	if err := db.Rdb.Set(fmt.Sprint(wallet.ID), walletJson, 0).Err(); err != nil {
+		return nil, fmt.Errorf("error setting balance to redis: %v", err)
 	}
 
 	return wallet, nil

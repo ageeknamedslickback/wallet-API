@@ -93,7 +93,7 @@ func TestWalletJsonAPI_WalletBalance(t *testing.T) {
 			}
 
 			if tt.wantStatusCode == http.StatusOK {
-				if !strings.Contains(w.Body.String(), "balance") {
+				if !strings.Contains(w.Body.String(), "wallet") {
 					t.Fatalf("expected balance to be found in response")
 				}
 			}

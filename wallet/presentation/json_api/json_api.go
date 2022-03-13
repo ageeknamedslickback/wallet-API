@@ -74,13 +74,13 @@ func (p *WalletJsonAPI) WalletBalance(c *gin.Context) {
 		return
 	}
 
-	balance, err := p.Uc.WalletBalance(ctx, *walletID)
+	wallet, err := p.Uc.WalletBalance(ctx, *walletID)
 	if err != nil {
 		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"balance": balance})
+	c.JSON(http.StatusOK, gin.H{"wallet": wallet})
 }
 
 // CreditWallet is a JSON API that credits a wallet's balance
