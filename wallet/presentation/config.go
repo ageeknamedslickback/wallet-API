@@ -1,7 +1,11 @@
 package presentation
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"os"
+	"time"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
 	jsonapi "github.com/ageeknamedslickback/wallet-API/wallet/presentation/json_api"
@@ -23,6 +27,24 @@ func Router() *gin.Engine {
 	updateRepo := database.NewWalletDb(gormDb)
 	uc := usecases.NewWalletUsecases(getRepo, updateRepo)
 	h := jsonapi.NewWalletJsonAPIs(uc)
+
+	gin.DisableConsoleColor()
+
+	f, _ := os.Create("wallet.log")
+	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+	router.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
+			param.ClientIP,
+			param.TimeStamp.Format(time.RFC1123),
+			param.Method,
+			param.Path,
+			param.Request.Proto,
+			param.StatusCode,
+			param.Latency,
+			param.Request.UserAgent(),
+			param.ErrorMessage,
+		)
+	}))
 
 	router.POST("/access_token", h.Authenticate)
 
