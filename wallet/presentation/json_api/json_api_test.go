@@ -82,8 +82,8 @@ func TestWalletJsonAPI_WalletBalance(t *testing.T) {
 func TestWalletJsonAPI_CreditWallet(t *testing.T) {
 	router := presentation.Router()
 
-	crAmount := dto.CrAmountInput{
-		CreditAmount: decimal.NewFromFloat(2.98),
+	crAmount := dto.AmountInput{
+		Amount: decimal.NewFromFloat(2.98),
 	}
 	crAmountBs, err := json.Marshal(crAmount)
 	if err != nil {
@@ -160,8 +160,8 @@ func TestWalletJsonAPI_CreditWallet(t *testing.T) {
 func TestWalletJsonAPI_DebitWallet(t *testing.T) {
 	router := presentation.Router()
 
-	drAmount := dto.DrAmountInput{
-		DebitAmount: decimal.NewFromFloat(2.98),
+	drAmount := dto.AmountInput{
+		Amount: decimal.NewFromFloat(2.98),
 	}
 	drAmountBs, err := json.Marshal(drAmount)
 	if err != nil {

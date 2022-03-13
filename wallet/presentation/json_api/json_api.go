@@ -86,8 +86,13 @@ func (p *WalletJsonAPI) CreditWallet(c *gin.Context) {
 		return
 	}
 
-	var crAmountInput dto.CrAmountInput
+	var crAmountInput dto.AmountInput
 	if err := c.ShouldBindJSON(&crAmountInput); err != nil {
+		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := crAmountInput.Valid(); err != nil {
 		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -95,7 +100,7 @@ func (p *WalletJsonAPI) CreditWallet(c *gin.Context) {
 	wallet, err := p.Uc.CreditWallet(
 		ctx,
 		*walletID,
-		crAmountInput.CreditAmount,
+		crAmountInput.Amount,
 	)
 	if err != nil {
 		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
@@ -115,8 +120,13 @@ func (p *WalletJsonAPI) DebitWallet(c *gin.Context) {
 		return
 	}
 
-	var drAmountInput dto.DrAmountInput
+	var drAmountInput dto.AmountInput
 	if err := c.ShouldBindJSON(&drAmountInput); err != nil {
+		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	if err := drAmountInput.Valid(); err != nil {
 		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -124,7 +134,7 @@ func (p *WalletJsonAPI) DebitWallet(c *gin.Context) {
 	wallet, err := p.Uc.DebitWallet(
 		ctx,
 		*walletID,
-		drAmountInput.DebitAmount,
+		drAmountInput.Amount,
 	)
 	if err != nil {
 		jsonErrorResponse(c, http.StatusBadRequest, err.Error())
