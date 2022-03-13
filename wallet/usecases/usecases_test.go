@@ -120,6 +120,24 @@ func TestWalletUsecases_CreditWallet(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "sad case - negative amount",
+			args: args{
+				ctx:          ctx,
+				walletID:     0,
+				creditAmount: decimal.NewFromFloat(-10.34),
+			},
+			wantErr: true,
+		},
+		{
+			name: "sad case - balance cannot go below 0",
+			args: args{
+				ctx:          ctx,
+				walletID:     0,
+				creditAmount: decimal.NewFromFloat(1034),
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -139,6 +157,10 @@ func TestWalletUsecases_CreditWallet(t *testing.T) {
 					t.Fatalf("error restoring the credited amount: %v", err)
 				}
 			}
+
+			if tt.wantErr && wallet != nil {
+				t.Fatalf("did not expect a wallet")
+			}
 		})
 	}
 }
@@ -155,9 +177,9 @@ func TestWalletUsecases_DebitWallet(t *testing.T) {
 	}
 
 	type args struct {
-		ctx          context.Context
-		walletID     int
-		creditAmount decimal.Decimal
+		ctx         context.Context
+		walletID    int
+		debitAmount decimal.Decimal
 	}
 	tests := []struct {
 		name    string
@@ -167,25 +189,34 @@ func TestWalletUsecases_DebitWallet(t *testing.T) {
 		{
 			name: "happy case",
 			args: args{
-				ctx:          ctx,
-				walletID:     walletID,
-				creditAmount: amount,
+				ctx:         ctx,
+				walletID:    walletID,
+				debitAmount: amount,
 			},
 			wantErr: false,
 		},
 		{
 			name: "sad case",
 			args: args{
-				ctx:          ctx,
-				walletID:     0,
-				creditAmount: amount,
+				ctx:         ctx,
+				walletID:    0,
+				debitAmount: amount,
+			},
+			wantErr: true,
+		},
+		{
+			name: "sad case - negative amount",
+			args: args{
+				ctx:         ctx,
+				walletID:    0,
+				debitAmount: decimal.NewFromFloat(-10.34),
 			},
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			wallet, err := w.DebitWallet(tt.args.ctx, tt.args.walletID, tt.args.creditAmount)
+			wallet, err := w.DebitWallet(tt.args.ctx, tt.args.walletID, tt.args.debitAmount)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("WalletUsecases.DebitWallet() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -200,6 +231,10 @@ func TestWalletUsecases_DebitWallet(t *testing.T) {
 				if _, err := w.CreditWallet(ctx, walletID, amount); err != nil {
 					t.Fatalf("error restoring the debited amount: %v", err)
 				}
+			}
+
+			if tt.wantErr && wallet != nil {
+				t.Fatalf("did not expect a wallet")
 			}
 		})
 	}

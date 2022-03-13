@@ -2,10 +2,15 @@ package jsonapi
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/dto"
 	"github.com/ageeknamedslickback/wallet-API/wallet/usecases"
@@ -13,6 +18,8 @@ import (
 )
 
 type WalletJsonPresentation interface {
+	Authenticate(c *gin.Context)
+
 	WalletBalance(c *gin.Context)
 	CreditWallet(c *gin.Context)
 	DebitWallet(c *gin.Context)
@@ -142,4 +149,44 @@ func (p *WalletJsonAPI) DebitWallet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"wallet": wallet})
+}
+
+// Authenticate provides an authentication endpoint that returns an access token
+// to interact with the other APIs
+func (p *WalletJsonAPI) Authenticate(c *gin.Context) {
+	params := url.Values{}
+	params.Add("grant_type", os.Getenv("AUTH0_GRANT_TYPE"))
+	params.Add("client_id", os.Getenv("AUTH0_CLIENT_ID"))
+	params.Add("client_secret", os.Getenv("AUTH0_CLIENT_SECRET"))
+	params.Add("audience", os.Getenv("AUTH0_AUDIENCE"))
+	payload := strings.NewReader(params.Encode())
+
+	URL := fmt.Sprintf("https://%s/oauth/token", os.Getenv("AUTH0_DOMAIN"))
+	req, err := http.NewRequest(http.MethodPost, URL, payload)
+	if err != nil {
+		jsonErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	req.Header.Set("content-type", "application/x-www-form-urlencoded")
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		jsonErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	defer res.Body.Close()
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		jsonErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var accessToken dto.AccessToken
+	if err := json.Unmarshal(body, &accessToken); err != nil {
+		jsonErrorResponse(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"response": accessToken})
 }

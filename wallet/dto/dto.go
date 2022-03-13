@@ -18,3 +18,10 @@ func (a *AmountInput) Valid() error {
 	}
 	return nil
 }
+
+// AccessToken represents Auth0 oauth2 access token
+type AccessToken struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"`
+}

@@ -3,6 +3,7 @@ package jsonapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,30 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+func accessToken(t *testing.T) string {
+	router := presentation.Router()
+	url := "/access_token"
+	w := httptest.NewRecorder()
+	req, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router.ServeHTTP(w, req)
+
+	// Response ..
+	type Response struct {
+		Resp dto.AccessToken `json:"response"`
+	}
+
+	var resp Response
+
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+
+	return resp.Resp.AccessToken
+
+}
 func TestWalletJsonAPI_WalletBalance(t *testing.T) {
 	router := presentation.Router()
 	type args struct {
@@ -53,7 +78,10 @@ func TestWalletJsonAPI_WalletBalance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
+
 			req, _ := http.NewRequest(tt.args.method, tt.args.url, nil)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken(t)))
+
 			router.ServeHTTP(w, req)
 
 			if tt.wantStatusCode != w.Code {
@@ -131,7 +159,10 @@ func TestWalletJsonAPI_CreditWallet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
+
 			req, _ := http.NewRequest(tt.args.method, tt.args.url, tt.args.body)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken(t)))
+
 			router.ServeHTTP(w, req)
 
 			if tt.wantStatusCode != w.Code {
@@ -209,7 +240,10 @@ func TestWalletJsonAPI_DebitWallet(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			w := httptest.NewRecorder()
+
 			req, _ := http.NewRequest(tt.args.method, tt.args.url, tt.args.body)
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", accessToken(t)))
+
 			router.ServeHTTP(w, req)
 
 			if tt.wantStatusCode != w.Code {
@@ -229,6 +263,58 @@ func TestWalletJsonAPI_DebitWallet(t *testing.T) {
 			if tt.wantStatusCode == http.StatusBadRequest {
 				if !strings.Contains(w.Body.String(), "error") {
 					t.Fatalf("expected error to be found in response")
+				}
+			}
+		})
+	}
+}
+
+func TestWalletJsonAPI_Authenticate(t *testing.T) {
+	router := presentation.Router()
+	type args struct {
+		url    string
+		method string
+	}
+	tests := []struct {
+		name           string
+		args           args
+		wantStatusCode int
+	}{
+		{
+			name: "happy case",
+			args: args{
+				url:    "/access_token",
+				method: http.MethodPost,
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name: "sad case - not found",
+			args: args{
+				url:    "/not-found",
+				method: http.MethodGet,
+			},
+			wantStatusCode: http.StatusNotFound,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+
+			req, _ := http.NewRequest(tt.args.method, tt.args.url, nil)
+			router.ServeHTTP(w, req)
+
+			if tt.wantStatusCode != w.Code {
+				t.Fatalf(
+					"expected status code %v, but got %v",
+					tt.wantStatusCode,
+					w.Code,
+				)
+			}
+
+			if tt.wantStatusCode == http.StatusOK {
+				if !strings.Contains(w.Body.String(), "response") {
+					t.Fatalf("expected response to be found in response")
 				}
 			}
 		})
