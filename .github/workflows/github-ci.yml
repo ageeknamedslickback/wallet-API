@@ -1,0 +1,40 @@
+name: walletapi
+
+on: [push]
+
+jobs:
+  lint_and_test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:latest
+        env:
+          MYSQL_DATABASE: wallets
+          MYSQL_ROOT_PASSWORD: password
+        options: >-
+         --health-cmd="mysqladmin ping" 
+         --health-interval=10s 
+         --health-timeout=5s 
+         --health-retries=3
+        ports:
+          - 3306
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.17
+
+    - name: Run tests
+      env:
+          DB_USER: root
+          DB_PASS: root
+          DB_NAME: wallets
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
+          DB_HOST: localhost
+      run: |
+        sudo /etc/init.d/mysql start
+        mysql -e 'INSERT INTO wallets(id,balance) VALUES(1,100);' -u ${{ env.DB_USER }} -p${{ env.DB_PASS }} -D ${{ env.DB_NAME }}
+        go test -v ./...
