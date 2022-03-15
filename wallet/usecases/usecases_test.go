@@ -10,6 +10,7 @@ import (
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
+	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/services/cache"
 	"github.com/ageeknamedslickback/wallet-API/wallet/repository/mocks"
 	"github.com/ageeknamedslickback/wallet-API/wallet/usecases"
 	"github.com/go-redis/redis"
@@ -33,8 +34,9 @@ func initTestUsecases() *usecases.WalletUsecases {
 		Password: os.Getenv("REDIS_PASSWORD"),
 		DB:       db,
 	})
-	getRepo := database.NewWalletDb(gormDb, rdb)
-	updateRepo := database.NewWalletDb(gormDb, rdb)
+	c := cache.NewCacheService(rdb)
+	getRepo := database.NewWalletDb(gormDb, c)
+	updateRepo := database.NewWalletDb(gormDb, c)
 	w := usecases.NewWalletUsecases(getRepo, updateRepo)
 	return w
 }

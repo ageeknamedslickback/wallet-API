@@ -2,14 +2,13 @@ package database
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
 	"github.com/ageeknamedslickback/wallet-API/wallet/dto"
-	"github.com/go-redis/redis"
+	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/services/cache"
 	"github.com/shopspring/decimal"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -18,16 +17,16 @@ import (
 // WalletDb sets up wallet's API server database layer
 // with all the necessary dependencies
 type WalletDb struct {
-	Db  *gorm.DB
-	Rdb *redis.Client
+	Db    *gorm.DB
+	Cache cache.WalletCache
 }
 
 // NewWalletDb initializes a new wallet server database instance
 // that meets all the preconsitions checks
-func NewWalletDb(gorm *gorm.DB, rdb *redis.Client) *WalletDb {
+func NewWalletDb(gorm *gorm.DB, c cache.WalletCache) *WalletDb {
 	db := WalletDb{
-		Db:  gorm,
-		Rdb: rdb,
+		Db:    gorm,
+		Cache: c,
 	}
 	db.checkPreconditions()
 
@@ -37,6 +36,11 @@ func NewWalletDb(gorm *gorm.DB, rdb *redis.Client) *WalletDb {
 func (db *WalletDb) checkPreconditions() {
 	if db.Db == nil {
 		log.Panicf("error initializing database, ORM has not been initialized")
+	}
+	if db.Cache == nil {
+		log.Panicf(
+			"error initializing database, Cache service has not been initialized",
+		)
 	}
 }
 
@@ -52,7 +56,10 @@ func ConnectToDatabase() (*gorm.DB, error) {
 	)
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return nil, dto.Wrap(fmt.Errorf("failed to connect to database with err %v", err), "ConnectToDatabase")
+		return nil, dto.Wrap(
+			fmt.Errorf("failed to connect to database with err %v", err),
+			"ConnectToDatabase",
+		)
 	}
 
 	if err := autoMigrate(db); err != nil {
@@ -68,7 +75,10 @@ func autoMigrate(db *gorm.DB) error {
 	}
 	for _, table := range tables {
 		if err := db.AutoMigrate(table); err != nil {
-			return dto.Wrap(fmt.Errorf("failed to automigrate with err %v", err), "autoMigrate")
+			return dto.Wrap(
+				fmt.Errorf("failed to automigrate with err %v", err),
+				"autoMigrate",
+			)
 		}
 	}
 
@@ -80,26 +90,21 @@ func (db *WalletDb) GetBalance(
 	ctx context.Context,
 	walletID int,
 ) (*domain.Wallet, error) {
-	var wallet domain.Wallet
-
-	id := fmt.Sprint(wallet.ID)
-	result, err := db.Rdb.Get(id).Result()
-	switch err {
-	case redis.Nil:
-		log.Printf("%s does not exist", id)
-
-	case nil:
-		if err := json.Unmarshal([]byte(result), &wallet); err != nil {
-			return nil, dto.Wrap(fmt.Errorf("failed to unmarshal cached balance with err %v", err), "GetBalance")
-		}
-		return &wallet, nil
-
-	default:
-		return nil, dto.Wrap(fmt.Errorf("failed to get cached balance with err %v", err), "GetBalance")
+	cachedBalance, err := db.Cache.GetCachedBalance(ctx, walletID)
+	if err != nil {
+		return nil, dto.Wrap(err, "GetBalance")
 	}
 
+	if cachedBalance != nil {
+		return cachedBalance, nil
+	}
+
+	var wallet domain.Wallet
 	if err := db.Db.First(&wallet, walletID).Error; err != nil {
-		return nil, dto.Wrap(fmt.Errorf("failed to get wallet record with err %v", err), "GetBalance")
+		return nil, dto.Wrap(
+			fmt.Errorf("failed to get wallet record with err %v", err),
+			"GetBalance",
+		)
 	}
 
 	return &wallet, nil
@@ -119,15 +124,14 @@ func (db *WalletDb) UpdateBalance(
 		Where("id = ?", wallet.ID).
 		Updates(domain.Wallet{Balance: balance}).
 		Error; err != nil {
-		return nil, dto.Wrap(fmt.Errorf("failed to update wallet balance with err %v", err), "UpdateBalance")
+		return nil, dto.Wrap(
+			fmt.Errorf("failed to update wallet balance with err %v", err),
+			"UpdateBalance",
+		)
 	}
 
-	walletJson, err := json.Marshal(wallet)
-	if err != nil {
-		return nil, dto.Wrap(fmt.Errorf("failed to marshal wallet balance with err %v", err), "UpdateBalance")
-	}
-	if err := db.Rdb.Set(fmt.Sprint(wallet.ID), walletJson, 0).Err(); err != nil {
-		return nil, dto.Wrap(fmt.Errorf("failed to cache wallet balance with err %v", err), "UpdateBalance")
+	if _, err := db.Cache.CacheBalance(ctx, wallet); err != nil {
+		return nil, dto.Wrap(err, "UpdateBalance")
 	}
 
 	return wallet, nil

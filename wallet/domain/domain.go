@@ -7,6 +7,6 @@ import (
 // Wallet represents a digital wallet that manages
 // debit and credit transaction for online casino game players
 type Wallet struct {
-	ID      uint            `json:"id" gorm:"primarykey"`
+	ID      int             `json:"id" gorm:"primarykey"`
 	Balance decimal.Decimal `json:"balance"`
 }

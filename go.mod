@@ -7,6 +7,7 @@ require (
 	github.com/brianvoe/gofakeit/v6 v6.15.0
 	github.com/gin-gonic/gin v1.7.7
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/google/uuid v1.3.0
 	github.com/gwatts/gin-adapter v0.0.0-20170508204228-c44433c485ad
 	github.com/shopspring/decimal v1.3.1
 	gorm.io/driver/mysql v1.3.2
