@@ -53,12 +53,12 @@ func jsonErrorResponse(c *gin.Context, statusCode int, err string) {
 func getWalletID(c *gin.Context) (*int, error) {
 	strWalletID := c.Param("wallet_id")
 	if strWalletID == "" {
-		return nil, fmt.Errorf("wallet ID has not been provided")
+		return nil, dto.Wrap(fmt.Errorf("wallet ID has not been provided"), "getWalletID")
 	}
 
 	walletID, err := strconv.Atoi(strWalletID)
 	if err != nil {
-		return nil, err
+		return nil, dto.Wrap(err, "getWalletID")
 	}
 
 	return &walletID, nil
