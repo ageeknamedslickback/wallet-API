@@ -9,6 +9,7 @@ import (
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/domain"
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
+	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/services/cache"
 	"github.com/brianvoe/gofakeit/v6"
 	"github.com/go-redis/redis"
 	"github.com/shopspring/decimal"
@@ -32,7 +33,9 @@ func initTestDatabase() *database.WalletDb {
 		DB:       db,
 	})
 
-	return database.NewWalletDb(gormDb, rdb)
+	c := cache.NewCacheService(rdb)
+
+	return database.NewWalletDb(gormDb, c)
 }
 
 func TestWalletDb_GetBalance(t *testing.T) {

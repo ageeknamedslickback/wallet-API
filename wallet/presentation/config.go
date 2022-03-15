@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/database"
+	"github.com/ageeknamedslickback/wallet-API/wallet/infrastructure/services/cache"
 	jsonapi "github.com/ageeknamedslickback/wallet-API/wallet/presentation/json_api"
 	"github.com/ageeknamedslickback/wallet-API/wallet/presentation/middleware"
 	"github.com/ageeknamedslickback/wallet-API/wallet/usecases"
@@ -35,8 +36,9 @@ func Router() *gin.Engine {
 	if err != nil {
 		log.Panicf("error connecting to the database: %v", err)
 	}
-	getRepo := database.NewWalletDb(gormDb, rdb)
-	updateRepo := database.NewWalletDb(gormDb, rdb)
+	cache := cache.NewCacheService(rdb)
+	getRepo := database.NewWalletDb(gormDb, cache)
+	updateRepo := database.NewWalletDb(gormDb, cache)
 	uc := usecases.NewWalletUsecases(getRepo, updateRepo)
 	h := jsonapi.NewWalletJsonAPIs(uc)
 
