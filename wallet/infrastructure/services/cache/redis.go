@@ -11,6 +11,7 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// WalletCache represents a contract that should be adhered to by the cache service
 type WalletCache interface {
 	CacheBalance(
 		ctx context.Context,

@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// WalletJsonPresentation represents a contract that should be adhered to by the presentation layer
 type WalletJsonPresentation interface {
 	Authenticate(c *gin.Context)
 
